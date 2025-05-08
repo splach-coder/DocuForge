@@ -1,0 +1,175 @@
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-3) var(--space-6);
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: var(--space-5);
+}
+
+.subtitle {
+  max-width: 700px;
+  margin: 0 auto var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.actionsContainer {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.processButton {
+  padding: var(--space-2) var(--space-4);
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 180px;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.processButton.processing {
+  background-color: var(--color-primary-dark);
+}
+
+.downloadAllButton {
+  padding: var(--space-2) var(--space-4);
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 180px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: var(--space-3) var(--space-2) var(--space-5);
+  }
+  
+  .hero {
+    margin-bottom: var(--space-4);
+  }
+  
+  .subtitle {
+    font-size: 1rem;
+  }
+  
+  .actionsContainer {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .processButton,
+  .downloadAllButton {
+    min-width: 160px;
+    padding: var(--space-1) var(--space-3);
+  }
+}
+
+
+/* Add these styles to your existing CSS file */
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+.modalBody {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.pdfPreview {
+  width: 100%;
+  height: 70vh;
+  border: none;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-top: 1px solid #eee;
+  gap: 10px;
+}
+
+.downloadButton {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.closeModalButton {
+  background-color: #f1f1f1;
+  color: #333;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
