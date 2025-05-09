@@ -7,6 +7,7 @@ const PDFMerger = () => {
   const [mergedPdfUrl, setMergedPdfUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const fileInputRef = useRef(null);
   const dropAreaRef = useRef(null);
 
@@ -76,10 +77,22 @@ const PDFMerger = () => {
       const mergedPdf = await PDFDocument.create();
       
       for (const file of pdfFiles) {
-        const fileBytes = await file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(fileBytes);
-        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        copiedPages.forEach(page => mergedPdf.addPage(page));
+        try {
+          const fileBytes = await file.arrayBuffer();
+          // Add ignoreEncryption option to handle encrypted PDFs
+          const pdfDoc = await PDFDocument.load(fileBytes, { 
+            ignoreEncryption: true 
+          });
+          const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+          copiedPages.forEach(page => mergedPdf.addPage(page));
+        } catch (err) {
+          console.error(`Error processing file ${file.name}:`, err);
+          setError(`Error processing file ${file.name}. It may be corrupted or heavily encrypted.`);
+        }
+      }
+      
+      if (mergedPdf.getPageCount() === 0) {
+        throw new Error('No pages could be processed from the provided PDFs.');
       }
       
       const mergedPdfBytes = await mergedPdf.save();
@@ -88,6 +101,8 @@ const PDFMerger = () => {
       
       setMergedPdfUrl(url);
       setIsLoading(false);
+      // Automatically show the preview modal when merging is complete
+      setShowPreviewModal(true);
     } catch (err) {
       console.error('Error merging PDFs:', err);
       setError('Error merging PDFs. Please try again with different files.');
@@ -105,6 +120,11 @@ const PDFMerger = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Close the preview modal
+  const closePreviewModal = () => {
+    setShowPreviewModal(false);
   };
 
   return (
@@ -209,14 +229,42 @@ const PDFMerger = () => {
         </div>
       )}
       
-      {mergedPdfUrl && (
-        <div className={styles.previewContainer}>
-          <h3>Preview</h3>
-          <iframe 
-            src={mergedPdfUrl} 
-            className={styles.pdfPreview} 
-            title="Merged PDF Preview"
-          />
+      {/* Preview Modal */}
+      {showPreviewModal && mergedPdfUrl && (
+        <div className={styles.previewModal}>
+          <div className={styles.previewModalContent}>
+            <div className={styles.previewModalHeader}>
+              <h2>Merged PDF Preview</h2>
+              <button 
+                className={styles.closeModalButton}
+                onClick={closePreviewModal}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className={styles.previewModalBody}>
+              <iframe 
+                src={mergedPdfUrl} 
+                className={styles.modalPdfPreview} 
+                title="Merged PDF Preview"
+              />
+            </div>
+            <div className={styles.previewModalFooter}>
+              <button 
+                className={styles.downloadButton} 
+                onClick={downloadMergedPdf}
+              >
+                <i className="fas fa-download"></i>
+                Download Merged PDF
+              </button>
+              <button 
+                className={styles.closeButton} 
+                onClick={closePreviewModal}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
