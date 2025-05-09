@@ -1,40 +1,70 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
-import Footer from './components/Footer';
-import HomePage from './pages/HomePage';
+import FileUpload from './components/FileUpload'; // Make sure this matches the file we'll create
+import ResultsViewer from './components/ResultsViewer';
+import PDFMerger from './components/PDFMerger';
 import './App.css';
 
 function App() {
-  const [appReady, setAppReady] = useState(false);
+  const [results, setResults] = React.useState([]);
   
-  useEffect(() => {
-    // Simulate a short loading time for a smoother entry animation
-    const timer = setTimeout(() => {
-      setAppReady(true);
-    }, 300);
+  const handleConversion = (newResults) => {
+    setResults(prev => [...prev, ...newResults]);
+  };
+  
+  const handleDownload = (resultIndex, pdfIndex) => {
+    const pdfUrl = results[resultIndex].pdfs[pdfIndex].pdf;
+    const pdfName = results[resultIndex].pdfs[pdfIndex].name;
     
-    return () => clearTimeout(timer);
-  }, []);
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = pdfName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  const handleDownloadAll = () => {
+    results.forEach(result => {
+      result.pdfs.forEach(pdfItem => {
+        const link = document.createElement('a');
+        link.href = pdfItem.pdf;
+        link.download = pdfItem.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    });
+  };
+  
+  const handleView = (resultIndex, pdfIndex) => {
+    const pdfUrl = results[resultIndex].pdfs[pdfIndex].pdf;
+    window.open(pdfUrl, '_blank');
+  };
   
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <Header />
-      
-      <motion.main
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: appReady ? 1 : 0, y: appReady ? 0 : 20 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <HomePage />
-      </motion.main>
-      
-      <Footer />
-    </motion.div>
+    <Router>
+      <div className="app">
+        <Header />
+        <main className="main">
+          <Routes>
+            <Route path="/" element={
+              <>
+                <FileUpload onConversion={handleConversion} />
+                <ResultsViewer 
+                  results={results} 
+                  onDownload={handleDownload} 
+                  onDownloadAll={handleDownloadAll}
+                  onView={handleView}
+                />
+              </>
+            } />
+            <Route path="/pdf-merger" element={<PDFMerger />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
   );
 }
 
