@@ -43,8 +43,17 @@ const Header = () => {
               <i className="fas fa-file-pdf"></i>
               PDF Merger
             </NavLink>
+            <NavLink 
+              to="/image-printer" 
+              className={({ isActive }) => 
+                isActive ? `${styles.navLink} ${styles.activeLink}` : styles.navLink
+              }
+            >
+              <i className="fas fa-images"></i>
+              Image Printer
+            </NavLink>
           </div>
-          <a href="https://github.com" target="_blank" rel="noreferrer" className={styles.githubLink}>
+          <a href="https://github.com/splach-coder" target="_blank" rel="noreferrer" className={styles.githubLink}>
             <i className="fab fa-github"></i>
             GitHub
           </a>
