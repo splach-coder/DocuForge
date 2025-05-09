@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import styles from './Header.module.css';
 
 const Header = () => {
@@ -24,14 +24,25 @@ const Header = () => {
         
         <nav className={styles.nav}>
           <div className={styles.navLinks}>
-            <Link to="/" className={styles.navLink}>
+            <NavLink 
+              to="/" 
+              className={({ isActive }) => 
+                isActive ? `${styles.navLink} ${styles.activeLink}` : styles.navLink
+              }
+              end
+            >
               <i className="fas fa-file-excel"></i>
               Excel to PDF
-            </Link>
-            <Link to="/pdf-merger" className={styles.navLink}>
+            </NavLink>
+            <NavLink 
+              to="/pdf-merger" 
+              className={({ isActive }) => 
+                isActive ? `${styles.navLink} ${styles.activeLink}` : styles.navLink
+              }
+            >
               <i className="fas fa-file-pdf"></i>
               PDF Merger
-            </Link>
+            </NavLink>
           </div>
           <a href="https://github.com" target="_blank" rel="noreferrer" className={styles.githubLink}>
             <i className="fab fa-github"></i>
