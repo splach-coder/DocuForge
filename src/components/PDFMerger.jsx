@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import styles from './PDFMerger.module.css';
 
 const PDFMerger = () => {
   const [pdfFiles, setPdfFiles] = useState([]);
+  const [pdfPageCounts, setPdfPageCounts] = useState({});
   const [mergedPdfUrl, setMergedPdfUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -12,12 +13,37 @@ const PDFMerger = () => {
   const dropAreaRef = useRef(null);
 
   // Handle file selection
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const files = Array.from(e.target.files).filter(file => file.type === 'application/pdf');
     if (files.length > 0) {
       setPdfFiles(prevFiles => [...prevFiles, ...files]);
       setMergedPdfUrl(null);
       setError(null);
+      
+      // Get page counts for each new file
+      for (const file of files) {
+        try {
+          const pageCount = await getPageCount(file);
+          setPdfPageCounts(prev => ({
+            ...prev,
+            [file.name]: pageCount
+          }));
+        } catch (err) {
+          console.error(`Error getting page count for ${file.name}:`, err);
+        }
+      }
+    }
+  };
+
+  // Get PDF page count
+  const getPageCount = async (file) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+      return pdf.getPageCount();
+    } catch (err) {
+      console.error(`Error counting pages in ${file.name}:`, err);
+      return 0;
     }
   };
 
@@ -31,7 +57,7 @@ const PDFMerger = () => {
     dropAreaRef.current.classList.remove(styles.dragOver);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     dropAreaRef.current.classList.remove(styles.dragOver);
     
@@ -40,6 +66,19 @@ const PDFMerger = () => {
       setPdfFiles(prevFiles => [...prevFiles, ...files]);
       setMergedPdfUrl(null);
       setError(null);
+      
+      // Get page counts for each new file
+      for (const file of files) {
+        try {
+          const pageCount = await getPageCount(file);
+          setPdfPageCounts(prev => ({
+            ...prev,
+            [file.name]: pageCount
+          }));
+        } catch (err) {
+          console.error(`Error getting page count for ${file.name}:`, err);
+        }
+      }
     } else {
       setError('Please drop PDF files only.');
     }
@@ -47,8 +86,16 @@ const PDFMerger = () => {
 
   // Remove a PDF from the list
   const removePdf = (index) => {
+    const fileToRemove = pdfFiles[index];
     setPdfFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
     setMergedPdfUrl(null);
+    
+    // Remove page count for the removed file
+    setPdfPageCounts(prev => {
+      const newCounts = {...prev};
+      delete newCounts[fileToRemove.name];
+      return newCounts;
+    });
   };
 
   // Reorder PDFs
@@ -158,13 +205,43 @@ const PDFMerger = () => {
       
       {pdfFiles.length > 0 && (
         <div className={styles.fileList}>
-          <h3>Selected Files ({pdfFiles.length})</h3>
-          <ul>
+          <div className={styles.fileListHeader}>
+            <h3>Selected Files ({pdfFiles.length})</h3>
+            <button 
+              className={styles.mergeButton} 
+              onClick={mergePdfs}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i>
+                  Merging...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-object-group"></i>
+                  Merge PDFs
+                </>
+              )}
+            </button>
+          </div>
+          
+          <ul className={styles.fileItemList}>
             {pdfFiles.map((file, index) => (
-              <li key={index} className={styles.fileItem}>
+              <li 
+                key={index} 
+                className={`${styles.fileItem} ${
+                  pdfPageCounts[file.name] > 10 ? styles.fileItemLarge : styles.fileItemSmall
+                }`}
+              >
                 <div className={styles.fileInfo}>
                   <i className="fas fa-file-pdf"></i>
                   <span className={styles.fileName}>{file.name}</span>
+                  <span className={styles.pageCount}>
+                    {pdfPageCounts[file.name] !== undefined ? 
+                      `${pdfPageCounts[file.name]} pages` : 
+                      'Counting...'}
+                  </span>
                 </div>
                 <div className={styles.fileActions}>
                   {index > 0 && (
@@ -198,24 +275,6 @@ const PDFMerger = () => {
           </ul>
           
           <div className={styles.mergeActions}>
-            <button 
-              className={styles.mergeButton} 
-              onClick={mergePdfs}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <i className="fas fa-spinner fa-spin"></i>
-                  Merging...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-object-group"></i>
-                  Merge PDFs
-                </>
-              )}
-            </button>
-            
             {mergedPdfUrl && (
               <button 
                 className={styles.downloadButton} 
