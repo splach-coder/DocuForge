@@ -122,8 +122,12 @@ const PDFMerger = () => {
     
     try {
       const mergedPdf = await PDFDocument.create();
+      const failedFiles = [];
       
       for (const file of pdfFiles) {
+        let fileProcessed = false;
+        
+        // First attempt with standard options plus ignoreEncryption
         try {
           const fileBytes = await file.arrayBuffer();
           // Add ignoreEncryption option to handle encrypted PDFs
@@ -131,10 +135,71 @@ const PDFMerger = () => {
             ignoreEncryption: true 
           });
           const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach(page => mergedPdf.addPage(page));
+          
+          // Validate if pages were successfully copied
+          if (copiedPages.length > 0) {
+            copiedPages.forEach(page => mergedPdf.addPage(page));
+            fileProcessed = true;
+          } else {
+            throw new Error('No pages could be copied from this PDF');
+          }
         } catch (err) {
-          console.error(`Error processing file ${file.name}:`, err);
-          setError(`Error processing file ${file.name}. It may be corrupted or heavily encrypted.`);
+          console.error(`First attempt error processing file ${file.name}:`, err);
+          
+          // Second attempt with alternative options for encrypted PDFs
+          try {
+            const fileBytes = await file.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(fileBytes, { 
+              ignoreEncryption: true,
+              updateMetadata: false // This can help with some encrypted PDFs
+            });
+            
+            const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            if (copiedPages.length > 0) {
+              copiedPages.forEach(page => mergedPdf.addPage(page));
+              fileProcessed = true;
+            } else {
+              throw new Error('No pages could be copied from this PDF');
+            }
+          } catch (secondErr) {
+            console.error(`Second attempt error processing file ${file.name}:`, secondErr);
+            
+            // Create a placeholder page with error message
+            try {
+              const placeholderPage = mergedPdf.addPage([600, 800]);
+              const { width, height } = placeholderPage.getSize();
+              
+              placeholderPage.drawText(`Error: Could not process file "${file.name}"`, {
+                x: 50,
+                y: height - 100,
+                size: 16,
+                color: { r: 0.77, g: 0.1, b: 0.1 }
+              });
+              
+              placeholderPage.drawText('This PDF may be encrypted or corrupted.', {
+                x: 50,
+                y: height - 130,
+                size: 12,
+                color: { r: 0, g: 0, b: 0 }
+              });
+              
+              placeholderPage.drawText('Please try removing password protection or using a different file.', {
+                x: 50,
+                y: height - 160,
+                size: 12,
+                color: { r: 0, g: 0, b: 0 }
+              });
+              
+              fileProcessed = true;
+              failedFiles.push(file.name);
+            } catch (placeholderErr) {
+              console.error(`Error creating placeholder for ${file.name}:`, placeholderErr);
+            }
+          }
+        }
+        
+        if (!fileProcessed) {
+          failedFiles.push(file.name);
         }
       }
       
@@ -147,6 +212,16 @@ const PDFMerger = () => {
       const url = URL.createObjectURL(blob);
       
       setMergedPdfUrl(url);
+      
+      // Show detailed error message about failed files
+      if (failedFiles.length > 0) {
+        if (failedFiles.length === pdfFiles.length) {
+          setError(`All files had issues. Placeholder pages were created for: ${failedFiles.join(', ')}`);
+        } else {
+          setError(`Some files had issues. Placeholder pages were created for: ${failedFiles.join(', ')}`);
+        }
+      }
+      
       setIsLoading(false);
       // Automatically show the preview modal when merging is complete
       setShowPreviewModal(true);
