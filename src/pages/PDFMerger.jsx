@@ -127,84 +127,76 @@ const PDFMerger = () => {
       for (const file of pdfFiles) {
         let fileProcessed = false;
         
-        // First attempt with standard options plus ignoreEncryption
         try {
           const fileBytes = await file.arrayBuffer();
-          // Add ignoreEncryption option to handle encrypted PDFs
+          // Attempt to load with ignoreEncryption
           const pdfDoc = await PDFDocument.load(fileBytes, { 
             ignoreEncryption: true 
           });
-          const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
           
-          // Validate if pages were successfully copied
+          // Check if the PDF is still encrypted and try to decrypt with an empty password
+          if (pdfDoc.isEncrypted()) {
+            try {
+              await pdfDoc.decrypt(''); // Attempt to decrypt with an empty password
+            } catch (decryptError) {
+              console.warn(`Could not decrypt ${file.name} with empty password:`, decryptError);
+              // If decryption fails, proceed with potentially encrypted (but printable) pages
+            }
+          }
+          
+          // Copy pages if the document is loaded (even if still encrypted but printable)
+          const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
           if (copiedPages.length > 0) {
             copiedPages.forEach(page => mergedPdf.addPage(page));
             fileProcessed = true;
           } else {
-            throw new Error('No pages could be copied from this PDF');
+            // If no pages are copied, it's likely an issue with the PDF structure or strong encryption
+            throw new Error('No pages could be copied from this PDF, it might be heavily encrypted or corrupted.');
           }
         } catch (err) {
-          console.error(`First attempt error processing file ${file.name}:`, err);
+          console.error(`Error processing ${file.name}:`, err);
+          failedFiles.push(file.name);
           
-          // Second attempt with alternative options for encrypted PDFs
+          // Create a placeholder page with a detailed error message
           try {
-            const fileBytes = await file.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(fileBytes, { 
-              ignoreEncryption: true,
-              updateMetadata: false // This can help with some encrypted PDFs
+            const placeholderPage = mergedPdf.addPage([600, 800]);
+            const { width, height } = placeholderPage.getSize();
+            
+            placeholderPage.drawText(`Error: Could not process file "${file.name}"`, {
+              x: 50,
+              y: height - 100,
+              size: 16,
+              color: { r: 0.77, g: 0.1, b: 0.1 } // Red color for error
             });
             
-            const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            if (copiedPages.length > 0) {
-              copiedPages.forEach(page => mergedPdf.addPage(page));
-              fileProcessed = true;
-            } else {
-              throw new Error('No pages could be copied from this PDF');
-            }
-          } catch (secondErr) {
-            console.error(`Second attempt error processing file ${file.name}:`, secondErr);
+            placeholderPage.drawText('This PDF may be encrypted or corrupted.', {
+              x: 50,
+              y: height - 130,
+              size: 12,
+              color: { r: 0, g: 0, b: 0 } // Black color for details
+            });
             
-            // Create a placeholder page with error message
-            try {
-              const placeholderPage = mergedPdf.addPage([600, 800]);
-              const { width, height } = placeholderPage.getSize();
-              
-              placeholderPage.drawText(`Error: Could not process file "${file.name}"`, {
-                x: 50,
-                y: height - 100,
-                size: 16,
-                color: { r: 0.77, g: 0.1, b: 0.1 }
-              });
-              
-              placeholderPage.drawText('This PDF may be encrypted or corrupted.', {
-                x: 50,
-                y: height - 130,
-                size: 12,
-                color: { r: 0, g: 0, b: 0 }
-              });
-              
-              placeholderPage.drawText('Please try removing password protection or using a different file.', {
-                x: 50,
-                y: height - 160,
-                size: 12,
-                color: { r: 0, g: 0, b: 0 }
-              });
-              
-              fileProcessed = true;
-              failedFiles.push(file.name);
-            } catch (placeholderErr) {
-              console.error(`Error creating placeholder for ${file.name}:`, placeholderErr);
-            }
+            placeholderPage.drawText('Please try removing password protection or using a different file.', {
+              x: 50,
+              y: height - 160,
+              size: 12,
+              color: { r: 0, g: 0, b: 0 }
+            });
+            fileProcessed = true; // Mark as processed since a placeholder is added
+          } catch (placeholderErr) {
+            console.error(`Error creating placeholder for ${file.name}:`, placeholderErr);
           }
         }
         
         if (!fileProcessed) {
+          // This case should ideally not be reached if placeholders are correctly added
           failedFiles.push(file.name);
         }
       }
       
-      if (mergedPdf.getPageCount() === 0) {
-        throw new Error('No pages could be processed from the provided PDFs.');
+      if (mergedPdf.getPageCount() === 0 && pdfFiles.length > 0) {
+        // If all files failed and no placeholders were added, this is a more general error
+        throw new Error('No pages could be processed from the provided PDFs. All files may be unreadable.');
       }
       
       const mergedPdfBytes = await mergedPdf.save();
@@ -213,7 +205,6 @@ const PDFMerger = () => {
       
       setMergedPdfUrl(url);
       
-      // Show detailed error message about failed files
       if (failedFiles.length > 0) {
         if (failedFiles.length === pdfFiles.length) {
           setError(`All files had issues. Placeholder pages were created for: ${failedFiles.join(', ')}`);
@@ -223,11 +214,10 @@ const PDFMerger = () => {
       }
       
       setIsLoading(false);
-      // Automatically show the preview modal when merging is complete
       setShowPreviewModal(true);
     } catch (err) {
       console.error('Error merging PDFs:', err);
-      setError('Error merging PDFs. Please try again with different files.');
+      setError(`Error merging PDFs: ${err.message}. Please try again with different files.`);
       setIsLoading(false);
     }
   };
